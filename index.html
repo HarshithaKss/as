@@ -357,6 +357,24 @@ python3 --version
 
 
 
+new now
+
+sudo sed -i '/^gpgcheck=0/a sslverify=0' /etc/yum.repos.d/CentOS-Vault.repo
+
+sudo yum clean all && sudo yum makecache
+
+date
+
+curl -I http://vault.centos.org/6.10/os/x86_64/repodata/repomd.xml
+curl -I https://vault.centos.org/6.10/os/x86_64/repodata/repomd.xml
+
+python - <<'PY'
+import urllib2
+print 'HTTP ok' if urllib2.urlopen('http://vault.centos.org/6.10/os/x86_64/repodata/repomd.xml').getcode()==200 else 'HTTP fail'
+PY
+
+
+
 
 </pre>
 </body>
