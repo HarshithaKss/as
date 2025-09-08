@@ -600,6 +600,35 @@ hadoop version
 hadoop classpath | tr ':' '\n' | grep -i streaming || true
 
 
+
+
+final
+
+# create input directory (safe to re-run)
+hadoop fs -mkdir -p /user/cloudera/survey_input
+
+# put dataset into HDFS
+hadoop fs -put -f /mnt/data/survey_big.csv /user/cloudera/survey_input/
+
+# verify dataset is in HDFS
+hadoop fs -ls /user/cloudera/survey_input
+
+# run the streaming job
+hadoop jar $HSTREAM_JAR \
+ -files avg_mapper.py,avg_reducer.py \
+ -mapper "python avg_mapper.py" \
+ -reducer "python avg_reducer.py" \
+ -input /user/cloudera/survey_input/* \
+ -output /user/cloudera/survey_output_avg
+
+
+
+
+ hadoop fs -ls /user/cloudera/survey_output_avg
+hadoop fs -cat /user/cloudera/survey_output_avg/part-* | head -n 50
+
+
+
 </pre>
 </body>
 </html>
