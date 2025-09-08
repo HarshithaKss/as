@@ -376,6 +376,169 @@ PY
 
 
 
+
+
+Disha
+
+product_id	,attribute	,score
+Product103	,Appearance	,2
+Product180	Price	2
+Product093	Price	1
+Product015	Appearance	3
+Product107	Durability	1
+Product072	Price	2
+Product189	Features	2
+Product021	Quality	4
+Product103	Performance	4
+Product122	Durability	3
+Product075	Design	4
+Product088	Value	4
+Product117	Durability	3
+Product100	Durability	5
+Product104	Durability	5
+
+
+
+
+
+#!/usr/bin/env python
+# avg_mapper.py  (Python 2.6.6 compatible)
+import sys
+import csv
+
+reader = csv.reader(sys.stdin)
+for row in reader:
+    if not row:
+        continue
+    # Expect at least 3 columns: product, attribute, score
+    # Adjust indices if your file places them differently
+    try:
+        product = row[0].strip()
+        attribute = row[1].strip()
+        score = row[2].strip()
+    except IndexError:
+        # skip malformed rows
+        continue
+
+    # skip header if present
+    if product.lower() == 'product_id' or attribute.lower() == 'attribute' or score.lower() == 'score':
+        continue
+
+    # validate numeric score
+    try:
+        float(score)
+    except:
+        continue
+
+    # combine product and attribute into single key using '|' as internal delimiter
+    key = product + '|' + attribute
+    # Hadoop streaming expects "key \t value"
+    print "%s\t%s" % (key, score)
+
+
+    chmod +x avg_mapper.py
+
+
+
+
+    #!/usr/bin/env python
+# avg_reducer.py  (Python 2.6.6 compatible)
+import sys
+
+current_key = None
+sum_scores = 0.0
+count = 0
+
+def emit(key, sum_s, cnt):
+    # split key back to product and attribute
+    parts = key.split('|', 1)
+    if len(parts) == 2:
+        product, attribute = parts
+    else:
+        product = key
+        attribute = ""
+    avg = (sum_s / cnt) if cnt else 0.0
+    # print: product \t attribute \t average \t count
+    print "%s\t%s\t%.4f\t%d" % (product, attribute, avg, cnt)
+
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    parts = line.split('\t', 1)
+    if len(parts) != 2:
+        continue
+    key, score_str = parts
+    try:
+        score = float(score_str)
+    except:
+        continue
+
+    if current_key == key:
+        sum_scores += score
+        count += 1
+    else:
+        if current_key:
+            emit(current_key, sum_scores, count)
+        current_key = key
+        sum_scores = score
+        count = 1
+
+# final key
+if current_key:
+    emit(current_key, sum_scores, count)
+
+
+chmod +x avg_reducer.py
+
+
+
+# run mapper, sort (grouping step), run reducer
+cat sample.csv | python avg_mapper.py | sort -k1,1 | python avg_reducer.py
+ProductA    Design    4.5000    2
+ProductA    Price     3.0000    1
+ProductB    Design    2.0000    1
+ProductB    Price     4.0000    1
+
+
+
+
+# create hdfs input dir
+hadoop fs -mkdir -p /user/$(whoami)/survey_input
+
+# copy local CSV to HDFS
+hadoop fs -put -f survey.csv /user/$(whoami)/survey_input/
+
+
+/usr/lib/hadoop-mapreduce/hadoop-streaming.jar
+
+find / -name "hadoop-streaming*.jar" 2>/dev/null
+
+HSTREAM_JAR=/usr/lib/hadoop-mapreduce/hadoop-streaming.jar
+
+
+hadoop fs -rm -r -skipTrash /user/$(whoami)/survey_output_avg || true
+
+
+hadoop jar $HSTREAM_JAR \
+ -files avg_mapper.py,avg_reducer.py \
+ -mapper "python avg_mapper.py" \
+ -reducer "python avg_reducer.py" \
+ -input /user/$(whoami)/survey_input/* \
+ -output /user/$(whoami)/survey_output_avg
+
+
+ hadoop fs -ls /user/$(whoami)/survey_output_avg
+hadoop fs -cat /user/$(whoami)/survey_output_avg/part-00000 | less
+
+
+output ProductA<TAB>Design<TAB>4.5000<TAB>2
+...
+
+
+
+
+
 </pre>
 </body>
 </html>
