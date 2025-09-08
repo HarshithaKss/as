@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+<pre>
+review_id	product_id	user_id	rating	review_text
+1	P1001	u1	5	Great phone, battery lasts long and camera is good
+2	P1001	u2	4	Battery good but camera low light is average
+3	P2002	u3	1	Terrible product, stopped working after a week
+4	P2002	u4	2	Not worth it. Poor build
+5	P3003	u5	5	Excellent. Love the design and battery
+6	P1001	u6	3	Okay phone. Camera ok, battery meh
+7	P3003	u7	4	Good product, solid performance
+8	P4004	u8	5	Amazing quality and value
+
+#!/usr/bin/env python3
+import sys, csv
+
+def cleanse(s):
+    return s.strip()
+
+reader = csv.DictReader(sys.stdin)
+for row in reader:
+    try:
+        product = cleanse(row.get("product_id",""))
+        rating = row.get("rating","").strip()
+        if product and rating:
+            print(f"{product}\t{rating}")
+    except Exception:
+        continue
+
+
+#!/usr/bin/env python3
+import sys
+
+current_product = None
+sum_ratings = 0.0
+count = 0
+
+def output_avg(prod, s, c):
+    if prod is None: return
+    avg = s / c
+    print(f"{prod}\t{avg:.3f}")
+
+for line in sys.stdin:
+    line = line.strip()
+    if not line: continue
+    parts = line.split("\t", 1)
+    if len(parts) != 2: continue
+    product, rating_s = parts
+    try:
+        rating = float(rating_s)
+    except:
+        continue
+    if current_product is None:
+        current_product = product
+        sum_ratings = rating
+        count = 1
+    elif product == current_product:
+        sum_ratings += rating
+        count += 1
+    else:
+        output_avg(current_product, sum_ratings, count)
+        current_product = product
+        sum_ratings = rating
+        count = 1
+
+output_avg(current_product, sum_ratings, count)
+
+#!/usr/bin/env python3
+import sys, csv, re
+
+stopwords = set()
+try:
+    with open('stopwords.txt') as f:
+        for w in f:
+            w = w.strip().lower()
+            if w:
+                stopwords.add(w)
+except Exception:
+    stopwords = set(["the","and","is","it","this","that","a","an","in","on","of","for","to","was","are","but","be","with","i","we","you","they","he","she","as","so","its","my","have","has"])
+
+token_re = re.compile(r"[a-zA-Z0-9']{2,}")
+
+reader = csv.DictReader(sys.stdin)
+for row in reader:
+    try:
+        text = row.get("review_text","")
+        text = text.lower()
+        for token in token_re.findall(text):
+            token = token.strip("'")
+            if not token: continue
+            if token in stopwords: continue
+            print(f"{token}\t1")
+    except Exception:
+        continue
+
+#!/usr/bin/env python3
+import sys
+
+current_word = None
+count = 0
+
+def out(word, c):
+    if word is None: return
+    print(f"{word}\t{c}")
+
+for line in sys.stdin:
+    line = line.strip()
+    if not line: continue
+    parts = line.split("\t", 1)
+    if len(parts) != 2: continue
+    word, c_s = parts
+    try:
+        c = int(c_s)
+    except:
+        continue
+    if current_word is None:
+        current_word = word
+        count = c
+    elif word == current_word:
+        count += c
+    else:
+        out(current_word, count)
+        current_word = word
+        count = c
+
+out(current_word, count)
+
+#!/bin/bash
+set -e
+# Update HSTREAM_JAR below if your hadoop-streaming jar is in a different location
+HSTREAM_JAR=/usr/lib/hadoop-mapreduce/hadoop-streaming.jar
+USERDIR=/user/$(whoami)
+INP=${USERDIR}/reviews_input/reviews.csv
+
+hdfs dfs -rm -r -f ${USERDIR}/reviews_output_avg || true
+hdfs dfs -rm -r -f ${USERDIR}/reviews_output_kw || true
+
+echo "Running average rating job..."
+hadoop jar $HSTREAM_JAR \
+ -files avg_mapper.py,avg_reducer.py \
+ -mapper "python3 avg_mapper.py" \
+ -reducer "python3 avg_reducer.py" \
+ -input ${INP} \
+ -output ${USERDIR}/reviews_output_avg
+
+echo "Running keyword count job..."
+hadoop jar $HSTREAM_JAR \
+ -files kw_mapper.py,kw_reducer.py,stopwords.txt \
+ -mapper "python3 kw_mapper.py" \
+ -reducer "python3 kw_reducer.py" \
+ -input ${INP} \
+ -output ${USERDIR}/reviews_output_kw
+
+echo "Copy keyword output locally and sort"
+hdfs dfs -cat ${USERDIR}/reviews_output_kw/part-00000 > kw_counts.txt
+sort -k2 -nr kw_counts.txt | head -n 20 > top_keywords.txt
+echo "Top keywords:"
+cat top_keywords.txt
+
+
+the
+and
+is
+it
+this
+that
+a
+an
+in
+on
+of
+for
+to
+was
+are
+but
+be
+with
+i
+we
+you
+they
+he
+she
+as
+so
+its
+my
+have
+has
+not
+by
+from
+
+
+</pre>
+</body>
+</html>
