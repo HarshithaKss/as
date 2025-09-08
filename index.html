@@ -199,6 +199,127 @@ by
 from
 
 
+hdfs dfs -mkdir -p /user/$(whoami)/reviews_input
+hdfs dfs -put -f reviews.csv /user/$(whoami)/reviews_input/
+hdfs dfs -ls -h /user/$(whoami)/reviews_input
+
+find / -name "hadoop-streaming*.jar" 2>/dev/null | head -n 5
+
+HSTREAM_JAR=/usr/lib/hadoop-mapreduce/hadoop-streaming.jar  # replace with the path you found
+
+hadoop jar $HSTREAM_JAR \
+ -files avg_mapper.py,avg_reducer.py \
+ -mapper "python3 avg_mapper.py" \
+ -reducer "python3 avg_reducer.py" \
+ -input /user/$(whoami)/reviews_input/reviews.csv \
+ -output /user/$(whoami)/reviews_output_avg \
+ -cmdenv LC_ALL=en_US.UTF-8
+
+ yarn jar $HSTREAM_JAR \
+ -files avg_mapper.py,avg_reducer.py \
+ -mapper "python3 avg_mapper.py" \
+ -reducer "python3 avg_reducer.py" \
+ -input /user/$(whoami)/reviews_input/reviews.csv \
+ -output /user/$(whoami)/reviews_output_avg
+
+ hdfs dfs -ls /user/$(whoami)/reviews_output_avg
+hdfs dfs -cat /user/$(whoami)/reviews_output_avg/part-00000 | head -n 50
+
+P1001   4.000
+P2002   1.500
+P3003   4.500
+P4004   5.000
+
+
+hadoop jar $HSTREAM_JAR \
+ -files kw_mapper.py,kw_reducer.py,stopwords.txt \
+ -mapper "python3 kw_mapper.py" \
+ -reducer "python3 kw_reducer.py" \
+ -input /user/$(whoami)/reviews_input/reviews.csv \
+ -output /user/$(whoami)/reviews_output_kw
+
+ hdfs dfs -ls /user/$(whoami)/reviews_output_kw
+hdfs dfs -cat /user/$(whoami)/reviews_output_kw/part-00000 | head -n 50
+
+
+hdfs dfs -cat /user/$(whoami)/reviews_output_kw/part-00000 > kw_counts.txt
+# sort numerically by 2nd column (count) descending
+sort -k2 -nr kw_counts.txt | head -n 20 > top_keywords.txt
+cat top_keywords.txt
+
+
+
+#!/bin/bash
+set -e
+HSTREAM_JAR=/usr/lib/hadoop-mapreduce/hadoop-streaming.jar   # change if needed
+USERDIR=/user/$(whoami)
+INP=${USERDIR}/reviews_input/reviews.csv
+
+# cleanup outputs if exist
+hdfs dfs -rm -r -f ${USERDIR}/reviews_output_avg || true
+hdfs dfs -rm -r -f ${USERDIR}/reviews_output_kw || true
+
+echo "Running average rating job..."
+hadoop jar $HSTREAM_JAR \
+ -files avg_mapper.py,avg_reducer.py \
+ -mapper "python3 avg_mapper.py" \
+ -reducer "python3 avg_reducer.py" \
+ -input ${INP} \
+ -output ${USERDIR}/reviews_output_avg
+
+echo "Running keyword count job..."
+hadoop jar $HSTREAM_JAR \
+ -files kw_mapper.py,kw_reducer.py,stopwords.txt \
+ -mapper "python3 kw_mapper.py" \
+ -reducer "python3 kw_reducer.py" \
+ -input ${INP} \
+ -output ${USERDIR}/reviews_output_kw
+
+echo "Copy keyword output locally and sort"
+hdfs dfs -cat ${USERDIR}/reviews_output_kw/part-00000 > kw_counts.txt
+sort -k2 -nr kw_counts.txt | head -n 20 > top_keywords.txt
+echo "Top keywords:"
+cat top_keywords.txt
+
+#!/bin/bash
+set -e
+HSTREAM_JAR=/usr/lib/hadoop-mapreduce/hadoop-streaming.jar   # change if needed
+USERDIR=/user/$(whoami)
+INP=${USERDIR}/reviews_input/reviews.csv
+
+# cleanup outputs if exist
+hdfs dfs -rm -r -f ${USERDIR}/reviews_output_avg || true
+hdfs dfs -rm -r -f ${USERDIR}/reviews_output_kw || true
+
+echo "Running average rating job..."
+hadoop jar $HSTREAM_JAR \
+ -files avg_mapper.py,avg_reducer.py \
+ -mapper "python3 avg_mapper.py" \
+ -reducer "python3 avg_reducer.py" \
+ -input ${INP} \
+ -output ${USERDIR}/reviews_output_avg
+
+echo "Running keyword count job..."
+hadoop jar $HSTREAM_JAR \
+ -files kw_mapper.py,kw_reducer.py,stopwords.txt \
+ -mapper "python3 kw_mapper.py" \
+ -reducer "python3 kw_reducer.py" \
+ -input ${INP} \
+ -output ${USERDIR}/reviews_output_kw
+
+echo "Copy keyword output locally and sort"
+hdfs dfs -cat ${USERDIR}/reviews_output_kw/part-00000 > kw_counts.txt
+sort -k2 -nr kw_counts.txt | head -n 20 > top_keywords.txt
+echo "Top keywords:"
+cat top_keywords.txt
+
+
+
+./run_all.sh
+
+
+
+
 </pre>
 </body>
 </html>
