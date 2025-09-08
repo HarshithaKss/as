@@ -539,6 +539,67 @@ output ProductA<TAB>Design<TAB>4.5000<TAB>2
 
 
 
+jar error 
+
+
+
+
+ls -l /usr/lib/hadoop-mapreduce/hadoop-streaming.jar || echo "NOT FOUND: /usr/lib/hadoop-mapreduce/hadoop-streaming.jar"
+
+
+# search common install directories
+sudo find /usr /opt /var -name "hadoop-streaming*.jar" 2>/dev/null
+
+# if Cloudera/HDInsight/HDP style install:
+sudo find /usr/hdp /opt/cloudera /usr/lib -name "hadoop-streaming*.jar" 2>/dev/null
+
+
+find /usr /opt -name "hadoop-streaming*.jar" 2>/dev/null
+
+
+
+hadoop classpath | tr ':' '\n' | grep -i streaming || true
+
+hadoop version
+
+
+# list installed rpm packages that look like hadoop
+rpm -qa | grep -i hadoop
+
+# list files from packages (may be noisy)
+rpm -qa | grep -i hadoop | xargs -r rpm -ql 2>/dev/null | grep -i streaming
+
+# updatedb may require sudo
+sudo updatedb 2>/dev/null && locate hadoop-streaming | head -20
+
+/usr/hdp/current/hadoop-mapreduce-client/hadoop-streaming.jar
+
+
+export HSTREAM_JAR=/usr/hdp/current/hadoop-mapreduce-client/hadoop-streaming.jar
+echo $HSTREAM_JAR
+# then run:
+hadoop jar $HSTREAM_JAR -files avg_mapper.py,avg_reducer.py -mapper "python avg_mapper.py" -reducer "python avg_reducer.py" -input /user/$(whoami)/survey_input/* -output /user/$(whoami)/survey_output_avg
+
+
+
+# 1. check direct path
+ls -l /usr/lib/hadoop-mapreduce/hadoop-streaming.jar || echo "path not present"
+
+# 2. quick search common dirs (sudo preferred)
+sudo find /usr /opt /var -name "hadoop-streaming*.jar" 2>/dev/null
+
+# 3. inspect hadoop classpath (if hadoop is on PATH)
+hadoop classpath | tr ':' '\n' | grep -i streaming || true
+
+# 4. if found, export and run job
+# export HSTREAM_JAR=/path/you/found && hadoop jar $HSTREAM_JAR <your-args>
+
+
+
+hadoop version
+hadoop classpath | tr ':' '\n' | grep -i streaming || true
+
+
 </pre>
 </body>
 </html>
