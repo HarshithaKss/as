@@ -629,6 +629,45 @@ hadoop fs -cat /user/cloudera/survey_output_avg/part-* | head -n 50
 
 
 
+
+
+hadoop fs -mkdir -p /user/cloudera/survey_input
+hadoop fs -put -f /home/cloudera/survey.csv /user/cloudera/survey_input/
+hadoop fs -ls /user/cloudera/survey_input
+
+
+hadoop fs -rm -r -skipTrash /user/cloudera/survey_output_avg || true
+
+
+export HSTREAM_JAR=/usr/lib/hadoop-mapreduce/hadoop-streaming.jar   # or /usr/hdp/... if that's what you found
+ls -l $HSTREAM_JAR
+which python2 || which python2.6 || python --version
+
+
+
+hadoop jar $HSTREAM_JAR \
+ -files avg_mapper.py,avg_reducer.py \
+ -mapper "/usr/bin/python2.6 avg_mapper.py" \
+ -reducer "/usr/bin/python2.6 avg_reducer.py" \
+ -input /user/cloudera/survey_input/* \
+ -output /user/cloudera/survey_output_avg
+
+
+ hadoop fs -ls /user/cloudera/survey_output_avg
+hadoop fs -cat /user/cloudera/survey_output_avg/part-* | head -n 50
+
+
+
+
+Quick troubleshooting checklist
+
+If the Hadoop job fails, fetch YARN logs for the application id shown in the job output:
+
+yarn logs -applicationId <appId> 2>/dev/null | less
+
+    
+
+
 </pre>
 </body>
 </html>
