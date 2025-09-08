@@ -319,6 +319,44 @@ cat top_keywords.txt
 
 
 
+new
+
+
+
+sudo mkdir -p /etc/yum.repos.d/backup
+sudo mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/backup/
+
+
+
+
+sudo tee /etc/yum.repos.d/CentOS-Vault.repo > /dev/null <<'EOF'
+[base]
+name=CentOS-$releasever - Base
+baseurl=http://vault.centos.org/6.10/os/$basearch/
+gpgcheck=0
+
+[updates]
+name=CentOS-$releasever - Updates
+baseurl=http://vault.centos.org/6.10/updates/$basearch/
+gpgcheck=0
+
+[extras]
+name=CentOS-$releasever - Extras
+baseurl=http://vault.centos.org/6.10/extras/$basearch/
+gpgcheck=0
+EOF
+
+
+sudo yum clean all
+sudo yum makecache
+
+
+sudo yum install -y python36 python36-devel
+python3 --version
+
+
+
+
 
 </pre>
 </body>
